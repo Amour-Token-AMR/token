@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+/**
+ * @title AMRToken
+ * @dev Implémente un token ERC20 avec une logique ICO basique.
+ */
+contract AMRToken is ERC20, Ownable {
+    // Indique si l'ICO est active ou non.
+    bool public icoActive;
+    // Prix du token en wei (prix d'un token en ETH).
+    uint256 public tokenPrice;
+    // Nombre total de tokens vendus durant l'ICO.
+    uint256 public tokensSold;
+
+    // Événements pour le suivi de l'état de l'ICO et des ventes.
+    event ICOStarted(uint256 tokenPrice);
+    event ICOEnded();
+    event TokensPurchased(address indexed buyer, uint256 amount, uint256 cost);
+
+    /**
+     * @dev Constructeur du token, initialisant le nom, le symbole et l'état de l'ICO.
+     */
+    constructor() ERC20("Amour Token", "AMR") {
+        icoActive = false;
+        tokenPrice = 0.001 ether; // Valeur par défaut, modifiable lors du démarrage de l'ICO.
+    }
+
+    /**
+     * @notice Démarre l'ICO en définissant le prix du token.
+     * @param _tokenPrice Le prix en wei par token.
+     */
+    function startICO(uint256 _tokenPrice) external onlyOwner {
+        require(!icoActive, "ICO déjà active");
+        icoActive = true;
+        tokenPrice = _tokenPrice;
+        emit ICOStarted(_tokenPrice);
+    }
+
+    /**
+     * @notice Met fin à l'ICO.
+     */
+    function endICO() external onlyOwner {
+        require(icoActive, "ICO non active");
+        icoActive = false;
+        emit ICOEnded();
+    }
+
+    /**
+     * @notice Permet à un utilisateur d'acheter des tokens pendant l'ICO.
+     * Le montant d'ETH envoyé détermine le nombre de tokens achetés.
+     */
+    function buyTokens() external payable {
+        require(icoActive, "ICO n'est pas active");
+        require(msg.value > 0, "Vous devez envoyer de l'ETH pour acheter des tokens");
+        
+        uint256 numberOfTokens = msg.value / tokenPrice;
+        require(numberOfTokens > 0, "Fonds insuffisants pour acheter un token");
+
+        tokensSold += numberOfTokens;
+        _mint(msg.sender, numberOfTokens);
+
+        emit TokensPurchased(msg.sender, numberOfTokens, msg.value);
+    }
+
+    /**
+     * @notice Permet au propriétaire de retirer les fonds accumulés durant l'ICO.
+     */
+    function withdrawFunds() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+}
